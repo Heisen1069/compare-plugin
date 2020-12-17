@@ -1435,19 +1435,19 @@ std::pair<int, int> jumpToNextChange(int mainStartLine, int subStartLine, bool d
 		}
 	}
 
-	const bool isCornerDiff = ((mainStartLine < 0) && (subStartLine < 0));
+	const bool diffAtEdge = (mainStartLine < 0) && (subStartLine < 0);
 
-	if (isCornerDiff)
+	if (diffAtEdge)
 	{
 		if (down)
 		{
-			mainStartLine	= 0;
-			subStartLine	= 0;
+			mainStartLine	= CallScintilla(MAIN_VIEW, SCI_GETLINECOUNT, 0, 0) - 1;
+			subStartLine	= CallScintilla(SUB_VIEW, SCI_GETLINECOUNT, 0, 0) - 1;
 		}
 		else
 		{
-			mainStartLine	= CallScintilla(MAIN_VIEW, SCI_GETLINECOUNT, 0, 0) - 1;
-			subStartLine	= CallScintilla(SUB_VIEW, SCI_GETLINECOUNT, 0, 0) - 1;
+			mainStartLine	= 0;
+			subStartLine	= 0;
 		}
 	}
 
@@ -1456,10 +1456,10 @@ std::pair<int, int> jumpToNextChange(int mainStartLine, int subStartLine, bool d
 	int mainNextLine	= CallScintilla(MAIN_VIEW, nextMarker, mainStartLine, MARKER_MASK_LINE);
 	int subNextLine		= CallScintilla(SUB_VIEW, nextMarker, subStartLine, MARKER_MASK_LINE);
 
-	if ((mainNextLine == mainStartLine) && !isCornerDiff)
+	if ((mainNextLine == mainStartLine) && !goToCornerDiff)
 		mainNextLine = -1;
 
-	if ((subNextLine == subStartLine) && !isCornerDiff)
+	if ((subNextLine == subStartLine) && !goToCornerDiff)
 		subNextLine = -1;
 
 	int line			= (view == MAIN_VIEW) ? mainNextLine : subNextLine;
@@ -1469,7 +1469,51 @@ std::pair<int, int> jumpToNextChange(int mainStartLine, int subStartLine, bool d
 	{
 		// End of doc reached - no more diffs
 		if (otherLine < 0)
+		{
+			// if (!goToCornerDiff)
+			// {
+				// const int edgeLine		= (down ? getFirstLine(view) : getLastLine(view));
+				// const int currentLine	= (Settings.FollowingCaret ? getCurrentLine(view) : edgeLine);
+
+				// line = (view == MAIN_VIEW) ? mainStartLine : subStartLine;
+
+				// if (line >= 0)
+				// {
+					// if (down)
+						// --line;
+					// else
+						// ++line;
+
+					// bool dontChangeLine = ((down && (currentLine <= line)) || (!down && (currentLine >= line)));
+
+					// if (dontChangeLine)
+					// {
+						// int lineToBlink;
+
+						// if (isLineVisible(view, line))
+						// {
+							// lineToBlink = line;
+						// }
+						// else
+						// {
+							// lineToBlink = edgeLine;
+
+							// if ((down && (edgeLine > line)) || (!down && (edgeLine < line)))
+								// dontChangeLine = false;
+						// }
+
+						// if (dontChangeLine)
+						// {
+							// blinkLine(view, lineToBlink);
+
+							// return std::make_pair(view, -1);
+						// }
+					// }
+				// }
+			// }
+
 			return std::make_pair(-1, -1);
+		}
 
 		if (cmpPair->options.findUniqueMode)
 		{
@@ -1507,42 +1551,6 @@ std::pair<int, int> jumpToNextChange(int mainStartLine, int subStartLine, bool d
 
 	if (!down && !Settings.ShowOnlyDiffs && isLineAnnotated(view, line))
 		++line;
-
-	// No explicit go to corner diff but we are there - diffs wrap has occurred - 'up/down' notion is inverted
-	if (!goToCornerDiff && isCornerDiff)
-	{
-		const int edgeLine		= (down ? getLastLine(view) : getFirstLine(view));
-		const int currentLine	= (Settings.FollowingCaret ? getCurrentLine(view) : edgeLine);
-
-		bool dontChangeLine = false;
-
-		if ((down && (currentLine <= line)) || (!down && (currentLine >= line)))
-			dontChangeLine = true;
-
-		if (dontChangeLine)
-		{
-			int lineToBlink;
-
-			if (isLineVisible(view, line))
-			{
-				lineToBlink = line;
-			}
-			else
-			{
-				lineToBlink = edgeLine;
-
-				if ((down && (edgeLine > line)) || (!down && (edgeLine < line)))
-					dontChangeLine = false;
-			}
-
-			if (dontChangeLine)
-			{
-				blinkLine(view, lineToBlink);
-
-				return std::make_pair(view, -1);
-			}
-		}
-	}
 
 	LOGD("Jump to " + std::string(view == MAIN_VIEW ? "MAIN" : "SUB") +
 			" view, center doc line: " + std::to_string(line + 1) + "\n");
@@ -1590,8 +1598,8 @@ std::pair<int, int> jumpToFirstChange(bool goToCornerDiff = false, bool doNotBli
 
 std::pair<int, int> jumpToLastChange(bool goToCornerDiff = false, bool doNotBlink = false)
 {
-	std::pair<int, int> viewLoc = jumpToNextChange(CallScintilla(MAIN_VIEW, SCI_GETLINECOUNT, 0, 0),
-			CallScintilla(SUB_VIEW, SCI_GETLINECOUNT, 0, 0), false, goToCornerDiff, doNotBlink);
+	std::pair<int, int> viewLoc = jumpToNextChange(CallScintilla(MAIN_VIEW, SCI_GETLINECOUNT, 0, 0) - 1,
+			CallScintilla(SUB_VIEW, SCI_GETLINECOUNT, 0, 0) - 1, false, goToCornerDiff, doNotBlink);
 	showBlankAdjacentArrowMark(viewLoc.first, viewLoc.second, false);
 
 	return viewLoc;
